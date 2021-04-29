@@ -27,5 +27,5 @@ def cleanTweet(tweet):
 
 
 print(tweetPrueba)
-cleanTweet(tweetPrueba)
+print(TextBlob(str(TextBlob(cleanTweet(tweetPrueba)).translate(to='en'))).sentiment)
 
