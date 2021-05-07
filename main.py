@@ -1,16 +1,9 @@
-#from botometer import Botometer
 import tweepy
 from textblob import TextBlob
-import json
 import unicodedata
 from deep_translator import GoogleTranslator
 
-from textblob.exceptions import NotTranslated
-
-tweetPrueba = "Gracias a Nico por su entrevista y a su gran perro Mica por su compañia. Hablamos de la inclusión y la " \
-              "importancia de los perros de seguridad #Diosesamor @CamachoEsGei google.com 22.13"
-
-#nChecar imagenes/video
+# Checar imagenes/video
 # Hashtags, menciones, emojis, url
 
 
@@ -27,6 +20,7 @@ def isNumber(string):
     except (TypeError, ValueError):
         pass
     return False
+
 
 def isURL(word):
     try:
@@ -49,11 +43,63 @@ def cleanTweet(tweet):
             continue
     return cleanWords
 
+
+def getTweets(api, cuentaDeDiputado):
+
+    translator = GoogleTranslator(source="es", target="en")
+    count = 0
+    botPercentageAvg = 0
+    MAX = 1000
+    for tweet in tweepy.Cursor(api.user_timeline, id=cuentaDeDiputado, tweet_mode="extended").items():
+        tweetJSON = tweet._json
+        fullText = tweetJSON["full_text"]
+        if "RT @" not in fullText and fullText[0] != '@':
+            cleanText = cleanTweet(fullText)
+            try:
+                sentiment = TextBlob(str(translator.translate(cleanText))).sentiment
+                botPercentageAvg += sentiment.polarity
+                count += 1
+                print(count)
+            except Exception as e:
+                print(e)
+                continue
+            if count == MAX:
+                break
+    print("PolarityAvg = " + str(botPercentageAvg / count))
+
+
+def calculateMaxMinEngagement(api, cuentaDeDiputado):
+
+    max = 0
+    count = 0
+    avgEngagement = 0
+    MAX_TWEETS = 1000
+    for tweet in tweepy.Cursor(api.user_timeline, id=cuentaDeDiputado, tweet_mode="extended").items():
+        tweetJSON = tweet._json
+        fullText = tweetJSON["full_text"]
+        if "RT @" not in fullText and fullText[0] != '@':
+            engagement = int(tweetJSON["retweet_count"]) + int(tweetJSON["favorite_count"])
+            avgEngagement += engagement
+            count += 1
+            print(str(count)+"/"+str(MAX_TWEETS))
+            if count == 1 or max < engagement:
+                max = engagement
+                print("Max changed, nuevo max = " + str(max))
+            if count == 559:
+                print("Engagement del tweet "+ str(count)+" = " + str(engagement))
+            if count == MAX_TWEETS:
+                break
+    print("Cuenta analizada = " + cuentaDeDiputado)
+    print("Tweets analizados = " + str(count))
+    print("Max Engagement = " + str(max))
+    print("Avg Engagement = " + str(avgEngagement/count))
+
+
 def main():
 
-    #---------------- Cuenta entre comillas dobles, sin @
-    cuentaDeDiputado = "JTrianaT"
-    #-------------------- ^^^^
+    # ---------------- Cuenta entre comillas dobles, sin @
+    cuentaDeDiputado = "Marianavalto"
+    # -------------------- ^^^^
 
     consumer_key = "VPegZu8V1iD7HSZ4rvyLfCtmd"
     consumer_secret = "0BJ0HUCC4NAEcQghwwtqrKXHFFRQZ52WRicG8Xb8tQ0rGsAC5K"
@@ -64,27 +110,10 @@ def main():
     auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
     auth.set_access_token(access_token, access_token_secret)
 
-    api = tweepy.API(auth)
+    api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
 
-    translator = GoogleTranslator(source="es", target="en")
-    count = 0
-    polarityAvg = 0
-    MAX = 1000
-    for tweet in tweepy.Cursor(api.user_timeline, id=cuentaDeDiputado, tweet_mode="extended").items():
-        tweetJSON = tweet._json
-        fullText = tweetJSON["full_text"]
-        if "RT @" not in fullText and fullText[0] != '@':
-            cleanText = cleanTweet(fullText)
-            try:
-                sentiment = TextBlob(str(translator.translate(cleanText))).sentiment
-                polarityAvg += sentiment.polarity
-                count += 1
-                print(count)
-            except Exception as e:
-                print(e)
-                continue
-            if count == MAX:
-                break
-    print("PolarityAvg = " + str(polarityAvg/count))
+    getTweets(api, cuentaDeDiputado)
+    # calculateMaxMinEngagement(api, cuentaDeDiputado)
+
 
 main()
